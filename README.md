@@ -1,5 +1,9 @@
 # BemDoar - Backend
 
+## Sistema de gestão organizacional social 
+O BemDoar é um sistema de gestão dedicado a uma única organização social, desenvolvido em parceria real com o clube do idoso Nina Cruz (Gama-DF)
+O objetivo é organizar, em um unico sistema, as informaçoes, necessidades, doações sociais da instituiçoes 
+
 Java 21 + Spring Boot 3.5 + Spring Security (JWT) + JPA + H2.
 
 ## Rodar
@@ -55,4 +59,4 @@ sozinho na primeira vez e o H2 cria o arquivo `./data/bemdoar.mv.db`.
     service/UsuarioService.java
     controller/AuthController.java
 
-<!-- Submiss�o do Backend -->
+<!-- Submissão do Backend -->
