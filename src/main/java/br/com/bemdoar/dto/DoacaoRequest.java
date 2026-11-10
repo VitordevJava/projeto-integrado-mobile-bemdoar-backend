@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 public record DoacaoRequest(
         Long necessidadeId,
+        // Campanha nao faz parte do MVP; mantido apenas para rejeicao explicita.
         Long campanhaId,
         @NotBlank @Size(max = 150) String item,
         @NotNull @Positive Integer quantidade,

@@ -21,20 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/**
- * Configuracao de seguranca do BemDoar.
- *
- * ======================================================================
- * ATENCAO: este arquivo JA CONTEM as rotas publicas de TODAS as frentes.
- * Nenhum integrante precisa (e nao deve) editar este arquivo.
- * Se voce acha que precisa mexer aqui, fale com o tech lead antes.
- * ======================================================================
- *
- * Regra de ouro (RG-AUT-01 / RNF02):
- *   - o que e publico esta liberado abaixo por METODO + CAMINHO;
- *   - o que e "so administrador" e marcado com @PreAuthorize no CONTROLLER;
- *   - o que e "so o dono do registro" e conferido dentro do SERVICE.
- */
+/** Rotas públicas explícitas; as demais exigem autenticação e autorização por método. */
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -54,31 +41,19 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .headers(h -> h.frameOptions(f -> f.disable())) // libera o /h2-console
             .authorizeHttpRequests(auth -> auth
 
                 // ---------- infraestrutura ----------
-                .requestMatchers("/h2-console/**").permitAll()
-                .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 // ---------- login e cadastro (RF01, RF02) ----------
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/cadastro").permitAll()
 
                 // ---------- AREAS PUBLICAS (documento, item 2.2) ----------
                 .requestMatchers(HttpMethod.GET, "/api/instituicao").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/categorias/ativas").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/necessidades").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/necessidades/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/campanhas").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/campanhas/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/campanhas/*/necessidades").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/oportunidades").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/oportunidades/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/acoes").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/acoes/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/transparencia/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/comunicados/publicos").permitAll()
 
                 // ---------- todo o resto exige estar logado ----------
                 .anyRequest().authenticated()

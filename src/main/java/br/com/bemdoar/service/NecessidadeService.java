@@ -2,6 +2,8 @@ package br.com.bemdoar.service;
 
 import br.com.bemdoar.dto.NecessidadeRequest;
 import br.com.bemdoar.dto.NecessidadeResponse;
+import br.com.bemdoar.dto.NecessidadeAdminResponse;
+import br.com.bemdoar.dto.AuditoriaResponse;
 import br.com.bemdoar.entity.CategoriaNecessidade;
 import br.com.bemdoar.entity.Necessidade;
 import br.com.bemdoar.enums.Prioridade;
@@ -12,6 +14,9 @@ import br.com.bemdoar.repository.AcaoSocialRepository;
 import br.com.bemdoar.repository.CampanhaRepository;
 import br.com.bemdoar.repository.DoacaoRepository;
 import br.com.bemdoar.repository.NecessidadeRepository;
+import br.com.bemdoar.repository.UsuarioRepository;
+import br.com.bemdoar.enums.PerfilUsuario;
+import br.com.bemdoar.entity.Usuario;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
 
 /**
  * RF06 a RF10 - Necessidade.
@@ -38,17 +45,23 @@ public class NecessidadeService {
     private final DoacaoRepository doacaoRepository;
     private final CampanhaRepository campanhaRepository;
     private final AcaoSocialRepository acaoSocialRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final AuditoriaService auditoriaService;
 
     public NecessidadeService(NecessidadeRepository necessidadeRepository,
                               CategoriaNecessidadeService categoriaService,
                               DoacaoRepository doacaoRepository,
                               CampanhaRepository campanhaRepository,
-                              AcaoSocialRepository acaoSocialRepository) {
+                              AcaoSocialRepository acaoSocialRepository,
+                              UsuarioRepository usuarioRepository,
+                              AuditoriaService auditoriaService) {
         this.necessidadeRepository = necessidadeRepository;
         this.categoriaService = categoriaService;
         this.doacaoRepository = doacaoRepository;
         this.campanhaRepository = campanhaRepository;
         this.acaoSocialRepository = acaoSocialRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     // ---------------------------------------------------------------
@@ -79,27 +92,46 @@ public class NecessidadeService {
         return NecessidadeResponse.de(buscarEntidade(id));
     }
 
+    @Transactional(readOnly = true)
+    public NecessidadeAdminResponse buscarAdmin(Long id, Long adminId) {
+        exigirAdmin(adminId);
+        return NecessidadeAdminResponse.de(buscarEntidade(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditoriaResponse> historico(Long id, Long adminId) {
+        exigirAdmin(adminId);
+        buscarEntidade(id);
+        return auditoriaService.listar("NECESSIDADE", id);
+    }
+
     // ---------------------------------------------------------------
     // RF06 - cadastrar
     // RN05: categoria precisa estar ativa.
     // RN07: nasce ABERTA com quantidade recebida = 0.
     // ---------------------------------------------------------------
     @Transactional
-    public NecessidadeResponse criar(NecessidadeRequest request) {
+    public NecessidadeResponse criar(NecessidadeRequest request, Long adminId) {
 
+        Usuario admin = exigirAdmin(adminId);
         CategoriaNecessidade categoria = categoriaService.buscarAtivaOuFalhar(request.categoriaId());
 
         Necessidade necessidade = new Necessidade();
         necessidade.setTitulo(request.titulo());
         necessidade.setDescricao(request.descricao());
+        necessidade.setJustificativa(request.justificativa().trim());
+        necessidade.setCriadoPor(admin);
         necessidade.setCategoria(categoria);
         necessidade.setQuantidadeNecessaria(request.quantidadeNecessaria());
         necessidade.setQuantidadeRecebida(0);
         necessidade.setPrioridade(request.prioridade());
         necessidade.setSituacao(SituacaoNecessidade.ABERTA);
-        necessidade.setDataCriacao(LocalDateTime.now());
+        necessidade.setDataCriacao(agora());
 
-        return NecessidadeResponse.de(necessidadeRepository.save(necessidade));
+        Necessidade salva = necessidadeRepository.save(necessidade);
+        auditoriaService.registrar("NECESSIDADE", salva.getId(), "CRIACAO", adminId,
+                request.justificativa().trim(), null, resumo(salva));
+        return NecessidadeResponse.de(salva);
     }
 
     // ---------------------------------------------------------------
@@ -108,9 +140,11 @@ public class NecessidadeService {
     // RN06: nao reduzir a meta abaixo do que ja foi recebido.
     // ---------------------------------------------------------------
     @Transactional
-    public NecessidadeResponse atualizar(Long id, NecessidadeRequest request) {
+    public NecessidadeResponse atualizar(Long id, NecessidadeRequest request, Long adminId) {
 
+        Usuario admin = exigirAdmin(adminId);
         Necessidade necessidade = buscarEntidade(id);
+        String anterior = resumo(necessidade);
 
         if (necessidade.getSituacao() == SituacaoNecessidade.ENCERRADA) {
             throw new RegraNegocioException("Necessidades encerradas nao podem ser editadas.");
@@ -129,20 +163,27 @@ public class NecessidadeService {
 
         necessidade.setTitulo(request.titulo());
         necessidade.setDescricao(request.descricao());
+        necessidade.setJustificativa(request.justificativa().trim());
+        necessidade.setAtualizadoPor(admin);
+        necessidade.setAtualizadoEm(agora());
         necessidade.setQuantidadeNecessaria(request.quantidadeNecessaria());
         necessidade.setPrioridade(request.prioridade());
 
         // A meta mudou, entao a situacao pode ter mudado tambem.
         aplicarSituacaoPorProgresso(necessidade);
 
-        return NecessidadeResponse.de(necessidadeRepository.save(necessidade));
+        Necessidade salva = necessidadeRepository.save(necessidade);
+        auditoriaService.registrar("NECESSIDADE", id, "EDICAO", adminId,
+                request.justificativa().trim(), anterior, resumo(salva));
+        return NecessidadeResponse.de(salva);
     }
 
     // ---------------------------------------------------------------
     // RF09 - encerrar (nao apaga nada)
     // ---------------------------------------------------------------
     @Transactional
-    public NecessidadeResponse encerrar(Long id) {
+    public NecessidadeResponse encerrar(Long id, Long adminId) {
+        exigirAdmin(adminId);
         Necessidade necessidade = buscarEntidade(id);
 
         if (necessidade.getSituacao() == SituacaoNecessidade.ENCERRADA) {
@@ -150,8 +191,11 @@ public class NecessidadeService {
         }
 
         necessidade.setSituacao(SituacaoNecessidade.ENCERRADA);
-        necessidade.setDataEncerramento(LocalDateTime.now());
-        return NecessidadeResponse.de(necessidadeRepository.save(necessidade));
+        necessidade.setDataEncerramento(agora());
+        Necessidade salva = necessidadeRepository.save(necessidade);
+        auditoriaService.registrar("NECESSIDADE", id, "ENCERRAMENTO", adminId,
+                "Encerramento administrativo", "situacao anterior", "ENCERRADA");
+        return NecessidadeResponse.de(salva);
     }
 
     // ---------------------------------------------------------------
@@ -159,7 +203,8 @@ public class NecessidadeService {
     // RN17/RN20: so quando NAO existir nenhum vinculo historico.
     // ---------------------------------------------------------------
     @Transactional
-    public void excluir(Long id) {
+    public void excluir(Long id, Long adminId) {
+        exigirAdmin(adminId);
         Necessidade necessidade = buscarEntidade(id);
 
         if (doacaoRepository.existsByNecessidadeId(id)
@@ -181,7 +226,8 @@ public class NecessidadeService {
     // ===============================================================
     @Transactional
     public void recalcularProgresso(Long necessidadeId) {
-        Necessidade necessidade = buscarEntidade(necessidadeId);
+        Necessidade necessidade = necessidadeRepository.bloquearPorId(necessidadeId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Necessidade nao encontrada."));
 
         Integer somaRecebida = doacaoRepository.somarRecebidasDaNecessidade(necessidadeId);
         necessidade.setQuantidadeRecebida(somaRecebida == null ? 0 : somaRecebida);
@@ -219,7 +265,8 @@ public class NecessidadeService {
     @Transactional(readOnly = true)
     public Necessidade buscarDisponivelOuFalhar(Long id) {
         Necessidade necessidade = buscarEntidade(id);
-        if (necessidade.getSituacao() == SituacaoNecessidade.ENCERRADA) {
+        if (necessidade.getSituacao() == SituacaoNecessidade.ENCERRADA
+                || necessidade.getSituacao() == SituacaoNecessidade.ATENDIDA) {
             throw new RegraNegocioException("Este destino nao esta recebendo novas contribuicoes.");
         }
         return necessidade;
@@ -229,5 +276,24 @@ public class NecessidadeService {
     public Necessidade buscarEntidade(Long id) {
         return necessidadeRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Necessidade nao encontrada."));
+    }
+
+    private Usuario exigirAdmin(Long id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Usuario nao encontrado."));
+        if (!usuario.isAtivo() || usuario.getPerfil() != PerfilUsuario.ADMINISTRADOR) {
+            throw new org.springframework.security.access.AccessDeniedException("Acesso administrativo necessario.");
+        }
+        return usuario;
+    }
+
+    private String resumo(Necessidade n) {
+        return "titulo=" + n.getTitulo() + "; categoria=" + n.getCategoria().getId()
+                + "; meta=" + n.getQuantidadeNecessaria() + "; prioridade=" + n.getPrioridade()
+                + "; descricao=" + n.getDescricao();
+    }
+
+    private LocalDateTime agora() {
+        return LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
     }
 }

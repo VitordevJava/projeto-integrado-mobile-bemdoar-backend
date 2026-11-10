@@ -2,6 +2,8 @@ package br.com.bemdoar.controller;
 
 import br.com.bemdoar.dto.NecessidadeRequest;
 import br.com.bemdoar.dto.NecessidadeResponse;
+import br.com.bemdoar.dto.NecessidadeAdminResponse;
+import br.com.bemdoar.dto.AuditoriaResponse;
 import br.com.bemdoar.enums.Prioridade;
 import br.com.bemdoar.enums.SituacaoNecessidade;
 import br.com.bemdoar.service.NecessidadeService;
@@ -11,6 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import br.com.bemdoar.security.UsuarioAutenticado;
+import java.util.List;
 
 /** RF06 a RF10. */
 @RestController
@@ -45,29 +50,47 @@ public class NecessidadeController {
         return ResponseEntity.ok(necessidadeService.buscarPorId(id));
     }
 
+    @GetMapping("/{id}/admin")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public NecessidadeAdminResponse buscarAdmin(@PathVariable Long id,
+                                                 @AuthenticationPrincipal UsuarioAutenticado logado) {
+        return necessidadeService.buscarAdmin(id, logado.getId());
+    }
+
+    @GetMapping("/{id}/auditoria")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public List<AuditoriaResponse> historico(@PathVariable Long id,
+                                              @AuthenticationPrincipal UsuarioAutenticado logado) {
+        return necessidadeService.historico(id, logado.getId());
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public ResponseEntity<NecessidadeResponse> criar(@RequestBody @Valid NecessidadeRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(necessidadeService.criar(request));
+    public ResponseEntity<NecessidadeResponse> criar(@RequestBody @Valid NecessidadeRequest request,
+                                                      @AuthenticationPrincipal UsuarioAutenticado logado) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(necessidadeService.criar(request, logado.getId()));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<NecessidadeResponse> atualizar(@PathVariable Long id,
-                                                         @RequestBody @Valid NecessidadeRequest request) {
-        return ResponseEntity.ok(necessidadeService.atualizar(id, request));
+                                                         @RequestBody @Valid NecessidadeRequest request,
+                                                         @AuthenticationPrincipal UsuarioAutenticado logado) {
+        return ResponseEntity.ok(necessidadeService.atualizar(id, request, logado.getId()));
     }
 
     @PatchMapping("/{id}/encerrar")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public ResponseEntity<NecessidadeResponse> encerrar(@PathVariable Long id) {
-        return ResponseEntity.ok(necessidadeService.encerrar(id));
+    public ResponseEntity<NecessidadeResponse> encerrar(@PathVariable Long id,
+                                                        @AuthenticationPrincipal UsuarioAutenticado logado) {
+        return ResponseEntity.ok(necessidadeService.encerrar(id, logado.getId()));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public ResponseEntity<Void> excluir(@PathVariable Long id) {
-        necessidadeService.excluir(id);
+    public ResponseEntity<Void> excluir(@PathVariable Long id,
+                                        @AuthenticationPrincipal UsuarioAutenticado logado) {
+        necessidadeService.excluir(id, logado.getId());
         return ResponseEntity.noContent().build();
     }
 }

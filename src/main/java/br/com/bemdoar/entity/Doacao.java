@@ -10,17 +10,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * RF11 a RF13 - intencao de doacao de itens e seu ciclo de recebimento.
- *
- * RN25 - destino da doacao (pelo menos um dos dois campos e obrigatorio):
- *   - doacao DIRETA      -> so necessidade
- *   - doacao GERAL       -> so campanha
- *   - doacao DIRECIONADA -> campanha + necessidade (a necessidade precisa
- *                            estar vinculada aquela campanha)
- *
- * RN09/RN10 - so a situacao RECEBIDA atualiza progresso.
- */
+/** Intenção física de doação. Registros antigos de campanha são mantidos somente para consulta. */
 @Entity
 @Table(name = "doacao")
 @Getter
@@ -37,6 +27,8 @@ public class Doacao {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
+    // Nullable somente para preservar doacoes historicas de campanha.
+    // Novos cadastros exigem necessidade no service.
     @ManyToOne
     @JoinColumn(name = "necessidade_id")
     private Necessidade necessidade;
@@ -50,6 +42,24 @@ public class Doacao {
 
     @Column(nullable = false)
     private Integer quantidade;
+
+    @Column(unique = true, length = 50)
+    private String protocolo;
+
+    /** Nula enquanto nao houver entrega fisica. */
+    @Column(name = "quantidade_recebida")
+    private Integer quantidadeRecebida;
+
+    @Column(name = "prazo_analise")
+    private LocalDateTime prazoAnalise;
+
+    @Column(name = "prazo_entrega")
+    private LocalDateTime prazoEntrega;
+
+    @ManyToOne
+    @JoinColumn(name = "responsavel_recebimento_id")
+    private Usuario responsavelRecebimento;
+
 
     @Column(length = 500)
     private String observacao;

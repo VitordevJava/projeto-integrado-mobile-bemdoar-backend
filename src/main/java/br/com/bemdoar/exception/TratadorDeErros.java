@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -47,6 +48,11 @@ public class TratadorDeErros {
         Map<String, Object> corpo = base(HttpStatus.BAD_REQUEST, "Verifique os campos informados.");
         corpo.put("campos", campos);
         return ResponseEntity.badRequest().body(corpo);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> corpoInvalido(HttpMessageNotReadableException ex) {
+        return montar(HttpStatus.BAD_REQUEST, "Corpo da requisicao ausente ou invalido.");
     }
 
     /** Rede de seguranca: qualquer erro nao previsto vira 500 sem vazar detalhe. */

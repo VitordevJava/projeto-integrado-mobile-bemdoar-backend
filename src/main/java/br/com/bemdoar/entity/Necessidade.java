@@ -34,6 +34,20 @@ public class Necessidade {
     @Column(nullable = false, length = 2000)
     private String descricao;
 
+    @Column(length = 1000)
+    private String justificativa;
+
+    @ManyToOne
+    @JoinColumn(name = "criado_por_id")
+    private Usuario criadoPor;
+
+    @ManyToOne
+    @JoinColumn(name = "atualizado_por_id")
+    private Usuario atualizadoPor;
+
+    @Column(name = "atualizado_em")
+    private LocalDateTime atualizadoEm;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "categoria_id", nullable = false)
     private CategoriaNecessidade categoria;

@@ -14,6 +14,7 @@ import br.com.bemdoar.repository.UsuarioRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.core.annotation.Order;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,6 +35,7 @@ import java.util.List;
  * =============================================================
  */
 @Component
+@Order(1)
 public class DataSeeder implements CommandLineRunner {
 
     private final UsuarioRepository usuarioRepository;
@@ -99,17 +101,17 @@ public class DataSeeder implements CommandLineRunner {
         }
 
         Instituicao i = new Instituicao();
-        i.setNome("Instituicao BemDoar");
-        i.setDescricao("Organizacao social dedicada ao apoio de familias em situacao de vulnerabilidade.");
-        i.setMissao("Promover dignidade por meio de doacoes, voluntariado e acoes sociais.");
+        i.setNome("Instituicao parceira - demonstracao");
+        i.setDescricao("Dados ficticios de demonstracao. O nome oficial da parceira esta pendente de confirmacao.");
+        i.setMissao("Organizar necessidades e doacoes fisicas para a comunidade.");
         i.setAreaAtuacao("Assistencia social");
         i.setPublicoAtendido("Familias em situacao de vulnerabilidade social");
         i.setCep("00000-000");
         i.setLogradouro("Rua Exemplo");
         i.setNumero("100");
         i.setBairro("Centro");
-        i.setCidade("Sao Paulo");
-        i.setEstado("SP");
+        i.setCidade("Gama");
+        i.setEstado("DF");
         i.setTelefone("(11) 3000-0000");
         i.setEmail("contato@bemdoar.com");
         i.setHorarioAtendimento("Segunda a sexta, 9h as 17h");
@@ -128,12 +130,13 @@ public class DataSeeder implements CommandLineRunner {
 
         categoriaRepository.saveAll(List.of(alimentos, roupas, higiene));
 
+        Usuario admin = usuarioRepository.findByEmail("admin@bemdoar.com").orElseThrow();
         novaNecessidade("Cestas basicas", "Cestas basicas completas para 50 familias.",
-                alimentos, 50, Prioridade.ALTA);
-        novaNecessidade("Cobertores", "Cobertores de solteiro para a campanha de inverno.",
-                roupas, 100, Prioridade.MEDIA);
+                alimentos, 50, Prioridade.ALTA, admin);
+        novaNecessidade("Cobertores", "Cobertores de solteiro para o inverno.",
+                roupas, 100, Prioridade.MEDIA, admin);
         novaNecessidade("Kits de higiene", "Kit com sabonete, pasta de dente e shampoo.",
-                higiene, 80, Prioridade.BAIXA);
+                higiene, 80, Prioridade.BAIXA, admin);
     }
 
     private CategoriaNecessidade novaCategoria(String nome, String descricao) {
@@ -146,10 +149,12 @@ public class DataSeeder implements CommandLineRunner {
 
     private void novaNecessidade(String titulo, String descricao,
                                  CategoriaNecessidade categoria,
-                                 int quantidade, Prioridade prioridade) {
+                                 int quantidade, Prioridade prioridade, Usuario admin) {
         Necessidade n = new Necessidade();
         n.setTitulo(titulo);
         n.setDescricao(descricao);
+        n.setJustificativa("Necessidade de demonstracao para teste do sistema.");
+        n.setCriadoPor(admin);
         n.setCategoria(categoria);
         n.setQuantidadeNecessaria(quantidade);
         n.setQuantidadeRecebida(0);

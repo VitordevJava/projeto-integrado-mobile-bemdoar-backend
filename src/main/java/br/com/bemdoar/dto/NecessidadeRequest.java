@@ -14,6 +14,10 @@ public record NecessidadeRequest(
         @Size(max = 2000, message = "Descricao muito longa.")
         String descricao,
 
+        @NotBlank(message = "Informe a justificativa.")
+        @Size(max = 1000, message = "Justificativa muito longa.")
+        String justificativa,
+
         @NotNull(message = "Selecione uma categoria ativa.")
         Long categoriaId,
 
